@@ -1,0 +1,11 @@
+processed_data/
+__pycache__/
+raw_videos/
+backup/
+venv/
+*.DS_Store
+*.env
+*.pyc
+*.pyo
+*.pyd
+*.log
