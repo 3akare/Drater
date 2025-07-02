@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  client:
+    build: ./client
+    ports:
+      - "80:80"
+    networks:
+      - snoopy-network
+  server:
+    build: ./server
+    ports:
+      - "8080:8080"
+    networks:
+      - snoopy-network
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - LSTM_HOST=lstm:50051
+      - NLP_HOST=nlp:50052
+  lstm:
+    build: ./lstm
+    ports:
+      - "50051:50051"
+    networks:
+      - snoopy-network
+  nlp:
+    build: ./nlp
+    ports:
+      - "50052:50052"
+    networks:
+      - snoopy-network
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY} 
+volumes:
+  snoopy:
+networks:
+  snoopy-network:
+    driver: bridge
