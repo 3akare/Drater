@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package services;
+
+message KeypointFrame {
+  repeated float keypoints = 1;
+}
+
+message GestureSequence {
+  repeated KeypointFrame frames = 1;
+}
+
+service LstmService {
+  rpc Predict(LstmRequest) returns (LstmResponse);
+}
+
+message LstmRequest {
+  repeated GestureSequence gestures = 1;
+}
+
+message LstmResponse {
+  string translated_text = 1;
+}
+
+service NlpService {
+  rpc Refine(NlpRequest) returns (NlpResponse);
+}
+
+message NlpRequest {
+  string raw_text = 1;
+}
+
+message NlpResponse {
+  string refined_text = 1;
+}
