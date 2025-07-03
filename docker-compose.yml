@@ -2,38 +2,46 @@ version: "3.8"
 
 services:
   client:
+    container_name: drater-client
+    image: drater-client
     build: ./client
     ports:
       - "80:80"
     networks:
-      - snoopy-network
+      - drater-network
   server:
+    container_name: drater-server
+    image: drater-server
     build: ./server
     ports:
       - "8080:8080"
     networks:
-      - snoopy-network
+      - drater-network
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
       - LSTM_HOST=lstm:50051
       - NLP_HOST=nlp:50052
   lstm:
+    container_name: drater-lstm
+    image: drater-lstm
     build: ./lstm
     ports:
       - "50051:50051"
     networks:
-      - snoopy-network
+      - drater-network
   nlp:
+    container_name: drater-nlp
+    image: drater-nlp
     build: ./nlp
     ports:
       - "50052:50052"
     networks:
-      - snoopy-network
+      - drater-network
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY} 
 volumes:
-  snoopy:
+  drater:
 networks:
-  snoopy-network:
+  drater-network:
     driver: bridge
