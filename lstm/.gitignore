@@ -1,6 +1,3 @@
 __pycache__/
 venv/
-models/training_history*.png
-models/training_log*.csv
-models/config*.json
-models/*keras
+models/*
