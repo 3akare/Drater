@@ -3,15 +3,13 @@ FROM node:20.18.0 AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm
-
 COPY package*.json ./
 
-RUN pnpm install
+RUN npm install
 
 COPY . .
 
-RUN pnpm run build
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
