@@ -1,0 +1,7 @@
+proto/
+venv/
+__pycache__/
+models/training_log.csv
+models/confusion_matrix.png
+models/training_history.png
+models/config*.json

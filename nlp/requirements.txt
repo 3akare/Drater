@@ -1,0 +1,4 @@
+google-genai==1.10.0
+grpcio==1.71.0
+python-dotenv==1.1.1
+grpcio-tools
