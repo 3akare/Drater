@@ -2,9 +2,15 @@
 A multi-modal system for real-time sign language translation
 
 ## Build
-1. Install Docker.
-2. Clone the repository: `git clone https://github.com/3akare/Drater.git`
-3. Navigate to the directory: `cd Drater`
+1. Install Docker
+2. Clone the repository
+```bash
+git clone https://github.com/3akare/Drater.git`
+```
+3. Navigate to the directory
+```bash
+cd Drater
+```
 
 **Note:**
 * Create a `.env` file in the root directory (`Drater/.env`) and another in the `nlp` folder (`Drater/nlp/.env`).
@@ -12,7 +18,10 @@ A multi-modal system for real-time sign language translation
 * Download the latest model (`.keras`) from the repository's releases section and place it in `lstm/models/`.
 * In the `lstm/models/` directory, create a `label_map.json` file and paste the JSON labels as stated in the model's release notes.
 
-4. Run `docker-compose up --build`
+4. Build and Run 
+```bash
+docker-compose up --build
+```
 5. Visit `http://localhost:80` to use the application.
 
 ## Available Gestures
