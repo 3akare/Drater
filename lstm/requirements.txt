@@ -1,0 +1,8 @@
+tensorflow==2.16.2
+transformers>=4.27.0
+onnxruntime==1.21.0
+onnx==1.17.0
+sentencepiece==0.2.0
+protobuf==3.20.3
+grpcio==1.71.0
+grpcio-tools
