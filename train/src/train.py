@@ -16,6 +16,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 from train_utils import load_config, save_config, pad_or_truncate_sequence, data_generator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+JUST_HANDS = (21 * 3 * 2)  
 FEATURE_DIM_POSE_HANDS = (17 * 3) + (21 * 3 * 2)
 
 DEFAULT_CONFIG = {
@@ -26,11 +27,11 @@ DEFAULT_CONFIG = {
     'batch_size': 32,
     'learning_rate': 0.001,
     'sequence_length': 80,
-    'feature_dim': FEATURE_DIM_POSE_HANDS,
+    'feature_dim': JUST_HANDS,
     'hidden_size': 256,
     'num_layers': 2,
     'dropout_rate': 0.5,
-    'test_size': 0.2,
+    'test_size': 0.25,
     'validation_split': 0.2,
     'random_state': 42,
     'early_stopping_patience': 15,

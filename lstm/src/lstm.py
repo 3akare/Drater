@@ -15,6 +15,7 @@ MODEL_DIR = os.path.dirname(__file__)
 MODEL_PATH = os.path.join(MODEL_DIR, '../models', 'best_model_tf.keras')
 LABEL_MAP_PATH = os.path.join(MODEL_DIR, '../models', 'label_map.json')
 
+JUST_HANDS = (21 * 3 * 2)
 FEATURE_DIM = (17 * 3) + (21 * 3 * 2)
 SEQUENCE_LENGTH = 80
 
@@ -29,9 +30,9 @@ try:
         idx_to_label_str_keys = json.load(f)
         IDX_TO_LABEL = {int(k): v for k, v in idx_to_label_str_keys.items()}
     model = tf.keras.models.load_model(MODEL_PATH)
-    dummy_input = np.zeros((1, SEQUENCE_LENGTH, FEATURE_DIM), dtype=np.float32)
+    dummy_input = np.zeros((1, SEQUENCE_LENGTH, JUST_HANDS), dtype=np.float32)
     model.predict(dummy_input, verbose=0)
-    logging.info(f"Successfully loaded model and label map for {FEATURE_DIM}-dimensional input.")
+    logging.info(f"Successfully loaded model and label map for {JUST_HANDS}-dimensional input.")
 except Exception as e:
     logging.critical(f"FATAL ERROR: Could not load resources. Exiting. Error: {e}", exc_info=True)
     sys.exit(1)
@@ -51,8 +52,8 @@ class LstmPredictionService(prediction_services_pb2_grpc.LstmServiceServicer):
             input_frames = [frame.keypoints for frame in request.gestures[0].frames]
             live_sequence_np = np.array(input_frames, dtype=np.float32)
 
-            if live_sequence_np.ndim != 2 or live_sequence_np.shape[1] != FEATURE_DIM:
-                details = f"Invalid keypoint dimension. Expected (N, {FEATURE_DIM}), got {live_sequence_np.shape}"
+            if live_sequence_np.ndim != 2 or live_sequence_np.shape[1] != JUST_HANDS:
+                details = f"Invalid keypoint dimension. Expected (N, {JUST_HANDS}), got {live_sequence_np.shape}"
                 context.set_details(details)
                 context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
                 return prediction_services_pb2.LstmResponse()

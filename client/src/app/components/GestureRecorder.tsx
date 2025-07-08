@@ -6,11 +6,10 @@ import Recorder from "@/app/components/Recorder"
 import TextDisplay from "@/app/components/TextDisplay"
 import ControlDock from "@/app/components/ControlDock"
 
-import * as HolisticModule from "@mediapipe/holistic";
+import * as HandsModule from "@mediapipe/hands";
 
 const MIN_DETECTION_CONFIDENCE = 0.5;
 const MIN_TRACKING_CONFIDENCE = 0.5;
-const POSE_LANDMARKS_TO_EXTRACT = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
 type RecorderState = "default" | "initializing" | "recording" | "ready" | "loading" | "error" | "show-text";
 
@@ -21,62 +20,45 @@ export default function GestureRecorder() {
     const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
     const [isPlaying, setIsPlaying] = useState(false);
 
-    const [poseDetected, setPoseDetected] = useState(false);
     const [handsDetected, setHandsDetected] = useState<number>(0);
     const [keypointsCount, setKeypointsCount] = useState<number>(0);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
 
-    const holisticRef = useRef<HolisticModule.Holistic | null>(null);
+    const handsRef = useRef<HandsModule.Hands | null>(null);
     const animationFrameIdRef = useRef<number | null>(null);
     const recordedKeypointsRef = useRef<number[][]>([]);
     
     const textContainerRef = useRef<HTMLDivElement>(null);
     const wordsRef = useRef<string[]>([]);
 
-    const processResults = useCallback((results: HolisticModule.Results) => {
-        let isPoseDetected = false, numHandsDetected = 0;
-
-        const NUM_POSE_FEATURES = POSE_LANDMARKS_TO_EXTRACT.length * 3;
+    const processResults = useCallback((results: HandsModule.Results) => {
+        let numHandsDetected = 0;
         const NUM_HAND_FEATURES = 21 * 3;
 
-        let pose_kps = Array(NUM_POSE_FEATURES).fill(0.0);
         let left_hand_kps = Array(NUM_HAND_FEATURES).fill(0.0);
         let right_hand_kps = Array(NUM_HAND_FEATURES).fill(0.0);
 
-        if (results.poseLandmarks) {
-            isPoseDetected = true;
-            const refPoint = results.poseLandmarks[HolisticModule.POSE_LANDMARKS.NOSE];
-            if(refPoint) {
-                const { x: refX, y: refY, z: refZ } = refPoint;
-                pose_kps = POSE_LANDMARKS_TO_EXTRACT.flatMap(i => {
-                    const lm = results.poseLandmarks[i];
-                    return lm ? [lm.x - refX, lm.y - refY, lm.z - refZ] : [0, 0, 0];
-                });
-            }
-        }
-        
-        const handLandmarks = [results.leftHandLandmarks, results.rightHandLandmarks];
-        const handedness = ["Left", "Right"];
-        handLandmarks.forEach((landmarks, i) => {
-            if (landmarks) {
-                numHandsDetected++;
+        if (results.multiHandLandmarks && results.multiHandedness) {
+            numHandsDetected = results.multiHandLandmarks.length;
+            for (let i = 0; i < numHandsDetected; i++) {
+                const landmarks = results.multiHandLandmarks[i];
+                const handedness = (results.multiHandedness[i] as any).label;
                 const wristLm = landmarks[0];
                 if (wristLm) {
                     const { x: wristX, y: wristY, z: wristZ } = wristLm;
                     const normalized = landmarks.flatMap(lm => [lm.x - wristX, lm.y - wristY, lm.z - wristZ]);
-                    if (handedness[i] === "Left") left_hand_kps = normalized;
-                    else right_hand_kps = normalized;
+                    if (handedness === "Left") left_hand_kps = normalized;
+                    else if (handedness === "Right") right_hand_kps = normalized;
                 }
             }
-        });
+        }
         
-        setPoseDetected(isPoseDetected);
         setHandsDetected(numHandsDetected);
 
-        if (state === "recording" && (isPoseDetected || numHandsDetected > 0)) {
-            const combinedKeypoints = [...pose_kps, ...left_hand_kps, ...right_hand_kps];
+        if (state === "recording" && numHandsDetected > 0) {
+            const combinedKeypoints = [...left_hand_kps, ...right_hand_kps];
             recordedKeypointsRef.current.push(combinedKeypoints);
             setKeypointsCount(recordedKeypointsRef.current.length);
         }
@@ -87,8 +69,8 @@ export default function GestureRecorder() {
             animationFrameIdRef.current = null;
             return;
         }
-        if (holisticRef.current) {
-            await holisticRef.current.send({ image: videoRef.current });
+        if (handsRef.current) {
+            await handsRef.current.send({ image: videoRef.current });
         }
         animationFrameIdRef.current = requestAnimationFrame(animationLoop);
     }, []);
@@ -96,21 +78,21 @@ export default function GestureRecorder() {
     useEffect(() => {
         const initializeMediaPipe = async () => {
             try {
-                holisticRef.current = new HolisticModule.Holistic({ 
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`
+                handsRef.current = new HandsModule.Hands({ 
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
                 });
 
-                holisticRef.current.setOptions({
+                handsRef.current.setOptions({
+                    maxNumHands: 2,
                     modelComplexity: 1,
-                    smoothLandmarks: true,
                     minDetectionConfidence: MIN_DETECTION_CONFIDENCE,
                     minTrackingConfidence: MIN_TRACKING_CONFIDENCE
                 });
                 
-                holisticRef.current.onResults(processResults);
-                console.log('MediaPipe Holistic model initialized successfully.');
+                handsRef.current.onResults(processResults);
+                console.log('MediaPipe Hands model initialized successfully.');
             } catch (error) {
-                console.error('Failed to initialize MediaPipe Holistic model:', error);
+                console.error('Failed to initialize MediaPipe Hands model:', error);
                 toast.error('Failed to initialize detection model.');
             }
         };
@@ -119,7 +101,7 @@ export default function GestureRecorder() {
 
     const startRecording = useCallback(async () => {
         setError(""); setTranslatedText(""); setHighlightedIndex(-1); setIsPlaying(false);
-        setPoseDetected(false); setHandsDetected(0); setKeypointsCount(0);
+        setHandsDetected(0); setKeypointsCount(0);
         recordedKeypointsRef.current = [];
         setState("initializing");
 
@@ -132,7 +114,7 @@ export default function GestureRecorder() {
             await new Promise<void>(resolve => { if(videoRef.current) videoRef.current.onloadeddata = () => resolve() });
             await videoRef.current.play();
 
-            if (!holisticRef.current) throw new Error('MediaPipe Holistic model not ready.');
+            if (!handsRef.current) throw new Error('MediaPipe Hands model not ready.');
             
             animationFrameIdRef.current = requestAnimationFrame(animationLoop);
 
@@ -237,22 +219,19 @@ export default function GestureRecorder() {
         if (typeof window.speechSynthesis !== 'undefined') window.speechSynthesis.cancel();
         stopRecording();
         setTranslatedText(""); setError(""); setHighlightedIndex(-1); setIsPlaying(false);
-        setPoseDetected(false); setHandsDetected(0); setKeypointsCount(0);
+        setHandsDetected(0); setKeypointsCount(0);
         setState("default");
     }, [stopRecording]);
 
     return (
         <div className="relative flex flex-col w-full h-[calc(100vh-2rem)] max-h-screen overflow-hidden">
-
             <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-
                 {(state === "recording" || state === "initializing") && (
                     <div className="relative w-full max-w-7xl aspect-video rounded-lg shadow-lg bg-black">
                         <video ref={videoRef} className="w-full h-full object-cover transform -scale-x-100 rounded-lg" muted autoPlay playsInline />
                         <div className="absolute top-4 left-4 bg-black bg-opacity-80 text-white p-3 rounded text-sm z-50 font-mono">
-                            <div className="hidden md:block">Status: <span className="text-green-400">{state}</span></div>
-                            <div className="hidden md:block">Pose: <span className={poseDetected ? "text-green-400" : "text-red-400"}>{poseDetected ? "Detected" : "None"}</span></div>
-                            <div className="hidden md:block">Hands: <span className="text-blue-400">{handsDetected}</span></div>
+                            <div>Status: <span className="text-green-400">{state}</span></div>
+                            <div>Hands: <span className="text-blue-400">{handsDetected}</span></div>
                             <div>Frames: <span className="text-yellow-400">{keypointsCount}</span></div>
                         </div>
                     </div>
@@ -263,6 +242,7 @@ export default function GestureRecorder() {
                 {state === "error" && error && (
                     <div className="flex flex-col items-center justify-center mt-4 text-center">
                         <p className="text-red-600 mb-4">{error}</p>
+
                         <button onClick={resetRecorder} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm">Reset</button>
                     </div>
                 )}
