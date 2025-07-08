@@ -243,34 +243,33 @@ export default function GestureRecorder() {
 
     return (
         <div className="relative flex flex-col w-full h-[calc(100vh-2rem)] max-h-screen overflow-hidden">
-            <div className="flex-1 p-4 overflow-auto">
-                {state !== "show-text" ? (
-                    <Recorder state={state} onReset={resetRecorder} onRetry={resetRecorder} />
-                ) : (
+
+            <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+
+                {(state === "recording" || state === "initializing") && (
+                    <div className="relative w-full max-w-7xl aspect-video rounded-lg shadow-lg bg-black">
+                        <video ref={videoRef} className="w-full h-full object-cover transform -scale-x-100 rounded-lg" muted autoPlay playsInline />
+                        <div className="absolute top-4 left-4 bg-black bg-opacity-80 text-white p-3 rounded text-sm z-50 font-mono">
+                            <div className="hidden md:block">Status: <span className="text-green-400">{state}</span></div>
+                            <div className="hidden md:block">Pose: <span className={poseDetected ? "text-green-400" : "text-red-400"}>{poseDetected ? "Detected" : "None"}</span></div>
+                            <div className="hidden md:block">Hands: <span className="text-blue-400">{handsDetected}</span></div>
+                            <div>Frames: <span className="text-yellow-400">{keypointsCount}</span></div>
+                        </div>
+                    </div>
+                )}
+                {state === "show-text" && (
                     <TextDisplay ref={textContainerRef} translatedText={translatedText} highlightedIndex={highlightedIndex} words={wordsRef.current} onCopyToClipboard={copyToClipboard} />
                 )}
                 {state === "error" && error && (
-                    <div className="flex flex-col items-center justify-center mt-4">
-                        <p className="text-red-600 mb-4 text-center">{error}</p>
+                    <div className="flex flex-col items-center justify-center mt-4 text-center">
+                        <p className="text-red-600 mb-4">{error}</p>
                         <button onClick={resetRecorder} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm">Reset</button>
                     </div>
                 )}
-                {(state === "recording" || state === "initializing") && (
-                    <div className="fixed top-4 left-4 bg-black bg-opacity-80 text-white p-3 rounded text-sm z-50 font-mono">
-                        <div>Status: <span className="text-green-400">{state}</span></div>
-                        <div>Pose: <span className={poseDetected ? "text-green-400" : "text-red-400"}>{poseDetected ? "Detected" : "None"}</span></div>
-                        <div>Hands: <span className="text-blue-400">{handsDetected}</span></div>
-                        <div>Frames: <span className="text-yellow-400">{keypointsCount}</span></div>
-                    </div>
+                {(state === "default" || state === "ready" || state === "loading") && (
+                    <Recorder state={state} onReset={resetRecorder} onRetry={resetRecorder} />
                 )}
             </div>
-            {(state === 'initializing' || state === 'recording') && (
-                <div className="absolute bottom-20 right-4 z-10 md:block">
-                    <div className="md:w-48 md:h-32 xl:w-72 xl:h-48 overflow-hidden rounded-lg border border-blue-200 shadow-lg bg-black">
-                        <video ref={videoRef} className="w-full h-full object-cover transform -scale-x-100" muted autoPlay playsInline />
-                    </div>
-                </div>
-            )}
             <ControlDock state={state} isTextAvailable={!!translatedText} isPlaying={isPlaying} onStartRecording={startRecording} onStopRecording={stopRecording} onResetRecorder={resetRecorder} onSendRecording={sendRecording} onPlayTranslatedText={playTranslatedText} />
         </div>
     )
