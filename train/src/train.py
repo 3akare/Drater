@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import glob
 import logging
@@ -9,15 +10,15 @@ import tensorflow as tf
 from tensorflow import keras
 from datetime import datetime
 import matplotlib.pyplot as plt
-from tensorflow.keras import callbacks # type: ignore
+from tensorflow.keras import callbacks
 from bi_lstm_model import build_bilstm_classifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from train_utils import load_config, save_config, pad_or_truncate_sequence, data_generator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-JUST_HANDS = (21 * 3 * 2)  
-FEATURE_DIM_POSE_HANDS = (17 * 3) + (21 * 3 * 2)
+
+FEATURE_DIM_HANDS = 21 * 3 * 2 
 
 DEFAULT_CONFIG = {
     'data_dir': 'processed_data',
@@ -27,11 +28,11 @@ DEFAULT_CONFIG = {
     'batch_size': 32,
     'learning_rate': 0.001,
     'sequence_length': 80,
-    'feature_dim': JUST_HANDS,
+    'feature_dim': FEATURE_DIM_HANDS,
     'hidden_size': 256,
     'num_layers': 2,
     'dropout_rate': 0.5,
-    'test_size': 0.25,
+    'test_size': 0.2,
     'validation_split': 0.2,
     'random_state': 42,
     'early_stopping_patience': 15,
@@ -57,7 +58,7 @@ def main():
         logging.error(f"No .npy files found in '{config['data_dir']}'. Exiting.")
         return
 
-    unique_labels = sorted(list(set([path.split(os.sep)[-2] for path in all_data_paths])))
+    unique_labels = sorted(list(set([os.path.basename(os.path.dirname(path)) for path in all_data_paths])))
     label_to_idx = {label: i for i, label in enumerate(unique_labels)}
     idx_to_label = {i: label for label, i in label_to_idx.items()}
     num_classes = len(unique_labels)
@@ -71,26 +72,35 @@ def main():
     for path in all_data_paths:
         try:
             keypoints = np.load(path)
-            if keypoints.shape[1] != config['feature_dim']:
-                logging.warning(f"Feature dimension mismatch for {path}. Expected {config['feature_dim']}, got {keypoints.shape[1]}. Skipping.")
+            if keypoints.ndim != 2 or keypoints.shape[1] != config['feature_dim']:
+                logging.warning(f"Skipping mismatched file: {path} (Shape: {keypoints.shape}, Expected: {config['feature_dim']})")
                 continue
             all_sequences.append(pad_or_truncate_sequence(keypoints, config['sequence_length']))
-            label_name = path.split(os.sep)[-2]
+            label_name = os.path.basename(os.path.dirname(path))
             all_labels.append(label_to_idx[label_name])
         except Exception as e:
             logging.error(f"Error loading or processing {path}: {e}. Skipping.")
 
     if not all_sequences:
-        logging.error("No valid sequences found. Exiting.")
+        logging.error("No valid sequences could be loaded. Please check logs for mismatched files. Exiting.")
         return
 
-    X = np.array(all_sequences, dtype=np.float32)
+    try:
+        X = np.array(all_sequences, dtype=np.float32)
+    except ValueError:
+        logging.error("CRITICAL: Failed to create NumPy array from sequences due to inconsistent shapes.", exc_info=True)
+        sys.exit(1)
+
+    if X.dtype == 'object':
+        logging.error(f"CRITICAL: Feature matrix X has dtype 'object'. This confirms inconsistent data shapes. Please clean your 'processed_data' directory and re-run feature extraction.")
+        sys.exit(1)
+
     y = tf.keras.utils.to_categorical(np.array(all_labels, dtype=np.int32), num_classes=num_classes)
 
     X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=config['test_size'], random_state=config['random_state'], stratify=y)
     X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=config['validation_split'], random_state=config['random_state'], stratify=y_train_val)
 
-    logging.info(f"TRAINING ON HANDS AND POSE ONLY. Feature dimension: {config['feature_dim']}")
+    logging.info(f"TRAINING ON POSE AND HANDS. Feature dimension: {config['feature_dim']}")
     logging.info(f"Training samples: {X_train.shape[0]}, Validation samples: {X_val.shape[0]}, Testing samples: {X_test.shape[0]}")
 
     model = build_bilstm_classifier(
@@ -115,12 +125,11 @@ def main():
     ]
     train_gen = data_generator(X_train, y_train, config['batch_size'], augment=True)
     val_gen = data_generator(X_val, y_val, config['batch_size'], augment=False)
+    
+    logging.info("--- Starting Training ---")
     history = model.fit(train_gen, steps_per_epoch=max(1, len(X_train) // config['batch_size']), validation_data=val_gen, validation_steps=max(1, len(X_val) // config['batch_size']), epochs=config['epochs'], callbacks=model_callbacks, verbose=1)
     
-    logging.info("Final Evaluation on Test Set")
-    loss, accuracy, precision, recall = model.evaluate(X_test, y_test, batch_size=config['batch_size'], verbose=0)
-    logging.info(f"Test Loss: {loss:.4f}, Test Accuracy: {accuracy:.4f}, Test Precision: {precision:.4f}, Test Recall: {recall:.4f}")
-
+    logging.info("--- Final Evaluation on Test Set ---")
     y_pred_probs = model.predict(X_test)
     y_pred_sparse = np.argmax(y_pred_probs, axis=1)
     y_test_sparse = np.argmax(y_test, axis=1)
