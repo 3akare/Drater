@@ -1,7 +1,7 @@
 # Drater
 A multi-modal system for real-time sign language translation
 
-[![OpenSSF Scorecard](htt‌ps://api.securityscorecards.dev/projects/github.com/3akare/Drater/badge)](htt‌ps://securityscorecards.dev/viewer/?uri=github.com/3akare/Drater)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/3akare/Drater/badge)](https://securityscorecards.dev/viewer/?uri=github.com/3akare/Drater)
 
 ## Build
 1. Install Docker
